@@ -1,3 +1,4 @@
+#[derive(Clone, PartialEq)]
 pub struct Settings {
   pub cell_size: f64,
   pub grid_width: f64,

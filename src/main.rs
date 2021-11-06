@@ -8,6 +8,7 @@ mod settings;
 use components::counter::Counter;
 use components::game::Game;
 use components::title::Title;
+use settings::{default_settings, Settings};
 
 #[function_component(App)]
 fn app() -> Html {
@@ -18,7 +19,9 @@ fn app() -> Html {
     <Counter/>
     <hr/>
     <Title label="Game"/>
-    <Game/>
+    <ContextProvider<Settings> context={default_settings()}>
+      <Game/>
+    </ContextProvider<Settings>>
     </>
   }
 }

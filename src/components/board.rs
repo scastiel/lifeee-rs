@@ -1,5 +1,5 @@
 use crate::life;
-use crate::settings::*;
+use crate::settings::Settings;
 use wasm_bindgen::*;
 use yew::prelude::*;
 
@@ -33,13 +33,13 @@ impl Board {
       .unwrap()
   }
 
-  fn cell_range(&self) -> (std::ops::Range<i32>, std::ops::Range<i32>) {
+  fn cell_range(&self, settings: &Settings) -> (std::ops::Range<i32>, std::ops::Range<i32>) {
     let canvas = self.canvas();
 
-    let from_x = self.size_to_cells(-self.offset.0 as f64) - 1;
-    let to_x = self.size_to_cells(canvas.width() as f64 - self.offset.0 as f64);
-    let from_y = self.size_to_cells(-self.offset.1 as f64 - 1_f64) - 1;
-    let to_y = self.size_to_cells(canvas.height() as f64 - self.offset.1 as f64);
+    let from_x = self.size_to_cells(settings, -self.offset.0 as f64) - 1;
+    let to_x = self.size_to_cells(settings, canvas.width() as f64 - self.offset.0 as f64);
+    let from_y = self.size_to_cells(settings, -self.offset.1 as f64 - 1_f64) - 1;
+    let to_y = self.size_to_cells(settings, canvas.height() as f64 - self.offset.1 as f64);
 
     (from_x..to_x, from_y..to_y)
   }
@@ -51,18 +51,16 @@ impl Board {
     context.fill_rect(0.0, 0.0, canvas.width().into(), canvas.height().into())
   }
 
-  fn size_to_cells(&self, size: f64) -> i32 {
-    let settings = default_settings();
+  fn size_to_cells(&self, settings: &Settings, size: f64) -> i32 {
     (size / (settings.cell_size + settings.grid_width) as f64).ceil() as i32
   }
 
-  fn draw_grid(&self) {
-    let settings = default_settings();
+  fn draw_grid(&self, settings: &Settings) {
     let canvas = self.canvas();
     let context = self.context();
     context.set_fill_style(&JsValue::from_str("lightgray"));
 
-    let (cell_range_x, cell_range_y) = self.cell_range();
+    let (cell_range_x, cell_range_y) = self.cell_range(settings);
     for i in cell_range_x {
       context.fill_rect(
         self.offset.0 as f64 + i as f64 * (settings.cell_size + settings.grid_width),
@@ -82,12 +80,11 @@ impl Board {
     }
   }
 
-  fn draw_cells(&self, cells: &life::CellSet, color: String) {
-    let settings = default_settings();
+  fn draw_cells(&self, settings: &Settings, cells: &life::CellSet, color: String) {
     let context = self.context();
     context.set_fill_style(&JsValue::from(color));
 
-    let (cell_range_x, cell_range_y) = self.cell_range();
+    let (cell_range_x, cell_range_y) = self.cell_range(settings);
     let cells = cells.iter().filter(|life::Cell { x, y }| {
       *x >= cell_range_x.start
         && *x <= cell_range_x.end
@@ -114,6 +111,14 @@ impl Board {
     let to = 0.95_f64;
     let coeff = gen_index as f64 * (to - from) / (num_gens as f64) + from;
     crate::color_utils::grey(coeff)
+  }
+
+  fn settings(&self, ctx: &Context<Self>) -> Settings {
+    ctx
+      .link()
+      .context::<Settings>(Callback::noop())
+      .expect("settings context to be set")
+      .0
   }
 }
 
@@ -161,18 +166,20 @@ impl Component for Board {
   }
 
   fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
+    let settings = self.settings(ctx);
     self.erase();
-    self.draw_grid();
+    self.draw_grid(&settings);
     let previous_gens = &ctx.props().previous_gens;
     let num_gens = previous_gens.len();
     for i in 0..num_gens {
       let gen_index = num_gens - i - 1;
       self.draw_cells(
+        &settings,
         &previous_gens[gen_index],
         self.color_for_previous_gen(gen_index, num_gens),
       );
     }
-    self.draw_cells(&ctx.props().cells, "black".to_string());
+    self.draw_cells(&settings, &ctx.props().cells, "black".to_string());
   }
 
   fn view(&self, ctx: &Context<Self>) -> Html {
@@ -187,14 +194,6 @@ impl Component for Board {
           onpointerout={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
           onpointermove={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerMove(event.client_x(), event.client_y()))}
           />
-        // <ul>{
-        //   ctx.props().cells
-        //     .iter()
-        //     .map(|&life::Cell { x, y }| {
-        //       html! { <li>{x}{", "}{y}</li> }
-        //     })
-        //     .collect::<Html>()
-        // }</ul>
       </>
     }
   }

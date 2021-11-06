@@ -1,12 +1,12 @@
 use crate::components::board::Board;
 use crate::life;
-use crate::settings::default_settings;
+use crate::Settings;
 use std::collections::VecDeque;
 use yew::prelude::*;
 
 #[function_component(Game)]
 pub fn game() -> Html {
-  let settings = default_settings();
+  let settings = use_context::<Settings>().expect("expect settings context to be set");
   let cells = use_state(|| {
     let alive_cells = vec![
       life::Cell { x: 1, y: 0 },
