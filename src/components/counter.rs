@@ -1,4 +1,4 @@
-use gloo_console::log;
+use gloo::console::log;
 use yew::prelude::*;
 
 #[function_component(Counter)]
