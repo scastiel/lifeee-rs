@@ -2,6 +2,7 @@ use yew::prelude::*;
 
 mod components;
 mod life;
+mod settings;
 
 use components::counter::Counter;
 use components::game::Game;

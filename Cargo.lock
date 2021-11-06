@@ -399,6 +399,8 @@ name = "yew-app"
 version = "0.1.0"
 dependencies = [
  "gloo-console 0.2.0",
+ "wasm-bindgen",
+ "web-sys",
  "yew",
 ]
 
