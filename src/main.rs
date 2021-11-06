@@ -1,5 +1,6 @@
 use yew::prelude::*;
 
+mod color_utils;
 mod components;
 mod life;
 mod settings;

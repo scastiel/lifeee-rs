@@ -1,15 +1,19 @@
 use crate::components::board::Board;
 use crate::life;
+use crate::settings::default_settings;
 use std::collections::VecDeque;
 use yew::prelude::*;
 
 #[function_component(Game)]
 pub fn game() -> Html {
+  let settings = default_settings();
   let cells = use_state(|| {
     let alive_cells = vec![
-      life::Cell { x: 0, y: 0 },
-      life::Cell { x: 0, y: 1 },
+      life::Cell { x: 1, y: 0 },
+      life::Cell { x: 2, y: 1 },
       life::Cell { x: 0, y: 2 },
+      life::Cell { x: 1, y: 2 },
+      life::Cell { x: 2, y: 2 },
     ];
     alive_cells
       .iter()
@@ -41,7 +45,7 @@ pub fn game() -> Html {
         .map(|cell| cell.clone())
         .collect::<life::CellSet>(),
     );
-    if previous_gens_deque.len() > 1 {
+    if previous_gens_deque.len() > settings.num_previous {
       previous_gens_deque.pop_back();
     }
 

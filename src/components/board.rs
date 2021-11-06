@@ -108,6 +108,13 @@ impl Board {
       );
     }
   }
+
+  fn color_for_previous_gen(&self, gen_index: usize, num_gens: usize) -> String {
+    let from = 0.7_f64;
+    let to = 0.95_f64;
+    let coeff = gen_index as f64 * (to - from) / (num_gens as f64) + from;
+    crate::color_utils::grey(coeff)
+  }
 }
 
 pub enum BoardMessage {
@@ -156,8 +163,14 @@ impl Component for Board {
   fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
     self.erase();
     self.draw_grid();
-    if let Some(previous_gen) = ctx.props().previous_gens.first() {
-      self.draw_cells(&previous_gen, "lightgray".to_string());
+    let previous_gens = &ctx.props().previous_gens;
+    let num_gens = previous_gens.len();
+    for i in 0..num_gens {
+      let gen_index = num_gens - i - 1;
+      self.draw_cells(
+        &previous_gens[gen_index],
+        self.color_for_previous_gen(gen_index, num_gens),
+      );
     }
     self.draw_cells(&ctx.props().cells, "black".to_string());
   }
