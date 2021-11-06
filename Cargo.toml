@@ -17,5 +17,5 @@ features = [
   'Document',
   'Element',
   'HtmlCanvasElement',
-  'Window',
+  'Window'
 ]

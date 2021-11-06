@@ -123,28 +123,28 @@ impl Component for Game {
 
     html! {
       <>
-        <div>
-          <Board
-            cells={self.cells.clone()}
-            previous_gens={self.previous_gens.clone()}
-          />
+        <Board
+          cells={self.cells.clone()}
+          previous_gens={self.previous_gens.clone()}
+        />
+        <div style="background: white; position: absolute; bottom: 10px; left: 10px">
+          <button disabled={running} onclick={ctx.link().callback(|_| Msg::NextTick)}>{"Tick"}</button>
+          <button onclick={
+            if running {
+              ctx.link().callback(|_| Msg::Pause)
+            } else {
+              ctx.link().callback(|_| Msg::Play)
+            }
+          }>{{if running { "Pause" } else { "Play" }}}</button>
+          <label>
+            {"Speed:"}
+            <input
+              type="range" min="1" max="10"
+              onchange={on_change_speed}
+            />
+          </label>
+          <p>{"Generation #"}{self.tick}</p>
         </div>
-        <button disabled={running} onclick={ctx.link().callback(|_| Msg::NextTick)}>{"Tick"}</button>
-        <button onclick={
-          if running {
-            ctx.link().callback(|_| Msg::Pause)
-          } else {
-            ctx.link().callback(|_| Msg::Play)
-          }
-        }>{{if running { "Pause" } else { "Play" }}}</button>
-        <label>
-          {"Speed:"}
-          <input
-            type="range" min="1" max="10"
-            onchange={on_change_speed}
-          />
-        </label>
-        <p>{"Generation #"}{self.tick}</p>
       </>
     }
   }

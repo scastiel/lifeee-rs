@@ -1,5 +1,7 @@
 use crate::life;
 use crate::settings::Settings;
+use gloo::console::log;
+use gloo::events::EventListener;
 use wasm_bindgen::*;
 use yew::prelude::*;
 
@@ -13,6 +15,7 @@ pub struct Board {
   canvas_ref: NodeRef,
   offset: (i32, i32),
   last_offset: Option<(i32, i32)>,
+  _resize_handle: EventListener,
 }
 
 impl Board {
@@ -126,17 +129,25 @@ pub enum BoardMessage {
   PointerDown(i32, i32),
   PointerUp(i32, i32),
   PointerMove(i32, i32),
+  Resize,
 }
 
 impl Component for Board {
   type Message = BoardMessage;
   type Properties = BoardProps;
 
-  fn create(_ctx: &Context<Self>) -> Self {
+  fn create(ctx: &Context<Self>) -> Self {
+    let window = web_sys::window().unwrap();
+    let link = ctx.link().clone();
+    let resize_handle = EventListener::new(&window, "resize", move |_: &Event| {
+      link.send_message(BoardMessage::Resize)
+    });
+
     Self {
       canvas_ref: NodeRef::default(),
       offset: (0, 0),
       last_offset: None,
+      _resize_handle: resize_handle,
     }
   }
 
@@ -162,39 +173,54 @@ impl Component for Board {
           false
         }
       }
+      BoardMessage::Resize => {
+        let window = web_sys::window().unwrap();
+        let (width, height) = (
+          window.inner_width().unwrap().as_f64().unwrap() as u32,
+          window.inner_height().unwrap().as_f64().unwrap() as u32,
+        );
+        log!(format!("width = {}, height = {}", width, height));
+        let canvas = self.canvas();
+        canvas.set_width(width);
+        canvas.set_height(height);
+        true
+      }
     }
   }
 
   fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
-    let settings = self.settings(ctx);
-    self.erase();
-    self.draw_grid(&settings);
-    let previous_gens = &ctx.props().previous_gens;
-    let num_gens = previous_gens.len();
-    for i in 0..num_gens {
-      let gen_index = num_gens - i - 1;
-      self.draw_cells(
-        &settings,
-        &previous_gens[gen_index],
-        self.color_for_previous_gen(gen_index, num_gens),
-      );
+    if _first_render {
+      ctx.link().send_message(BoardMessage::Resize);
+    } else {
+      let settings = self.settings(ctx);
+      self.erase();
+      self.draw_grid(&settings);
+      let previous_gens = &ctx.props().previous_gens;
+      let num_gens = previous_gens.len();
+      for i in 0..num_gens {
+        let gen_index = num_gens - i - 1;
+        self.draw_cells(
+          &settings,
+          &previous_gens[gen_index],
+          self.color_for_previous_gen(gen_index, num_gens),
+        );
+      }
+      self.draw_cells(&settings, &ctx.props().cells, "black".to_string());
     }
-    self.draw_cells(&settings, &ctx.props().cells, "black".to_string());
   }
 
   fn view(&self, ctx: &Context<Self>) -> Html {
     html! {
-      <>
-        <canvas
-          ref={self.canvas_ref.clone()} style="border: 1px solid lightgray; cursor: move"
-          width={300}
-          height={200}
-          onpointerdown={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerDown(event.client_x(), event.client_y()))}
-          onpointerup={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
-          onpointerout={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
-          onpointermove={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerMove(event.client_x(), event.client_y()))}
-          />
-      </>
+      <canvas
+        ref={self.canvas_ref.clone()}
+        style="cursor: move; position: absolute; top: 0; right: 0; bottom: 0; left: 0"
+        width={300}
+        height={200}
+        onpointerdown={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerDown(event.client_x(), event.client_y()))}
+        onpointerup={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
+        onpointerout={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
+        onpointermove={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerMove(event.client_x(), event.client_y()))}
+      />
     }
   }
 }
