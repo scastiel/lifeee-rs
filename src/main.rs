@@ -2,6 +2,7 @@ use yew::prelude::*;
 
 mod color_utils;
 mod components;
+mod lexicon;
 mod life;
 mod settings;
 

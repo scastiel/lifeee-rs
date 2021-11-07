@@ -1,6 +1,5 @@
 use crate::life;
 use crate::settings::Settings;
-use gloo::console::log;
 use gloo::events::EventListener;
 use wasm_bindgen::*;
 use yew::prelude::*;
@@ -110,8 +109,8 @@ impl Board {
   }
 
   fn color_for_previous_gen(&self, gen_index: usize, num_gens: usize) -> String {
-    let from = 0.7_f64;
-    let to = 0.95_f64;
+    let from = 0.80_f64;
+    let to = 0.99_f64;
     let coeff = gen_index as f64 * (to - from) / (num_gens as f64) + from;
     crate::color_utils::grey(coeff)
   }
@@ -179,7 +178,6 @@ impl Component for Board {
           window.inner_width().unwrap().as_f64().unwrap() as u32,
           window.inner_height().unwrap().as_f64().unwrap() as u32,
         );
-        log!(format!("width = {}, height = {}", width, height));
         let canvas = self.canvas();
         canvas.set_width(width);
         canvas.set_height(height);

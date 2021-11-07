@@ -1,4 +1,5 @@
 use crate::components::board::Board;
+use crate::lexicon::get_lexicon;
 use crate::life::*;
 use crate::Settings;
 use gloo::timers::callback::Interval;
@@ -90,18 +91,13 @@ impl Component for Game {
 
   fn create(_: &Context<Self>) -> Self {
     Self {
-      cells: {
-        let alive_cells = vec![
-          Cell { x: 1, y: 0 },
-          Cell { x: 2, y: 1 },
-          Cell { x: 0, y: 2 },
-          Cell { x: 1, y: 2 },
-          Cell { x: 2, y: 2 },
-        ];
-        alive_cells
-          .iter()
-          .fold(CellSet::new(), |cells, &cell| make_cell_alive(&cells, cell))
-      },
+      cells: get_lexicon()
+        .unwrap()
+        .get_term("Gosper glider gun".to_string())
+        .unwrap()
+        .cells
+        .iter()
+        .fold(CellSet::new(), |cells, &cell| make_cell_alive(&cells, cell)),
       previous_gens: vec![] as Vec<CellSet>,
       tick: 0,
       interval: None,
