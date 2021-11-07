@@ -10,7 +10,7 @@ pub struct Cell {
   pub y: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Term {
   pub name: String,
   pub cells: Vec<Cell>,

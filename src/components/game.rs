@@ -1,5 +1,6 @@
 use crate::components::board::Board;
-use crate::lexicon::get_lexicon;
+use crate::components::pattern_selector::PatternSelector;
+use crate::lexicon::Term;
 use crate::life::*;
 use crate::Settings;
 use gloo::timers::callback::Interval;
@@ -21,6 +22,7 @@ pub enum Msg {
   Play,
   Pause,
   ChangeSpeed(u8),
+  ApplyPattern(Term),
 }
 
 impl Game {
@@ -86,18 +88,21 @@ impl Component for Game {
         }
         true
       }
+      Msg::ApplyPattern(term) => {
+        self.cells = term
+          .cells
+          .iter()
+          .fold(CellSet::new(), |cells, &cell| make_cell_alive(&cells, cell));
+        self.tick = 0;
+        self.previous_gens = vec![];
+        true
+      }
     }
   }
 
   fn create(_: &Context<Self>) -> Self {
     Self {
-      cells: get_lexicon()
-        .unwrap()
-        .get_term("Gosper glider gun".to_string())
-        .unwrap()
-        .cells
-        .iter()
-        .fold(CellSet::new(), |cells, &cell| make_cell_alive(&cells, cell)),
+      cells: CellSet::new(),
       previous_gens: vec![] as Vec<CellSet>,
       tick: 0,
       interval: None,
@@ -139,6 +144,7 @@ impl Component for Game {
               onchange={on_change_speed}
             />
           </label>
+          <PatternSelector on_apply_pattern={ctx.link().callback(|term| Msg::ApplyPattern(term))} />
           <p>{"Generation #"}{self.tick}</p>
         </div>
       </>
