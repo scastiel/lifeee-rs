@@ -1,7 +1,9 @@
+use crate::color_utils::grey;
 use crate::life;
 use crate::settings::Settings;
 use gloo::events::EventListener;
 use wasm_bindgen::*;
+use web_sys::WheelEvent;
 use yew::prelude::*;
 
 #[derive(PartialEq, Properties)]
@@ -12,8 +14,9 @@ pub struct BoardProps {
 
 pub struct Board {
   canvas_ref: NodeRef,
-  offset: (i32, i32),
-  last_offset: Option<(i32, i32)>,
+  offset: (f64, f64),
+  last_offset: Option<(f64, f64)>,
+  zoom: f64,
   _resize_handle: EventListener,
 }
 
@@ -38,10 +41,10 @@ impl Board {
   fn cell_range(&self, settings: &Settings) -> (std::ops::Range<i32>, std::ops::Range<i32>) {
     let canvas = self.canvas();
 
-    let from_x = self.size_to_cells(settings, -self.offset.0 as f64) - 1;
-    let to_x = self.size_to_cells(settings, canvas.width() as f64 - self.offset.0 as f64);
-    let from_y = self.size_to_cells(settings, -self.offset.1 as f64 - 1_f64) - 1;
-    let to_y = self.size_to_cells(settings, canvas.height() as f64 - self.offset.1 as f64);
+    let from_x = self.size_to_cells(settings, -self.offset.0) as i32 - 1;
+    let to_x = from_x + self.size_to_cells(settings, canvas.width() as f64) as i32 + 1;
+    let from_y = self.size_to_cells(settings, -self.offset.1) as i32 - 1;
+    let to_y = from_y + self.size_to_cells(settings, canvas.height() as f64) as i32 + 1;
 
     (from_x..to_x, from_y..to_y)
   }
@@ -53,19 +56,19 @@ impl Board {
     context.fill_rect(0.0, 0.0, canvas.width().into(), canvas.height().into())
   }
 
-  fn size_to_cells(&self, settings: &Settings, size: f64) -> i32 {
-    (size / (settings.cell_size + settings.grid_width) as f64).ceil() as i32
+  fn size_to_cells(&self, settings: &Settings, size: f64) -> f64 {
+    (size / (settings.cell_size * self.zoom + settings.grid_width) as f64).ceil()
   }
 
   fn draw_grid(&self, settings: &Settings) {
     let canvas = self.canvas();
     let context = self.context();
-    context.set_fill_style(&JsValue::from_str("lightgray"));
+    context.set_fill_style(&JsValue::from_str(grey(0.9).as_str()));
 
     let (cell_range_x, cell_range_y) = self.cell_range(settings);
     for i in cell_range_x {
       context.fill_rect(
-        self.offset.0 as f64 + i as f64 * (settings.cell_size + settings.grid_width),
+        self.offset.0 + i as f64 * (self.zoom * settings.cell_size + settings.grid_width),
         0.0,
         settings.grid_width,
         canvas.height().into(),
@@ -75,7 +78,7 @@ impl Board {
     for j in cell_range_y {
       context.fill_rect(
         0.0,
-        self.offset.1 as f64 + j as f64 * (settings.cell_size + settings.grid_width),
+        self.offset.1 + (j as f64 * (self.zoom * settings.cell_size + settings.grid_width)),
         canvas.width().into(),
         settings.grid_width,
       )
@@ -96,14 +99,14 @@ impl Board {
 
     for cell in cells {
       context.fill_rect(
-        self.offset.0 as f64
-          + settings.grid_width
-          + (settings.cell_size + settings.grid_width) * cell.x as f64,
-        self.offset.1 as f64
-          + settings.grid_width
-          + (settings.cell_size + settings.grid_width) * cell.y as f64,
-        settings.cell_size,
-        settings.cell_size,
+        self.offset.0
+          + (settings.grid_width
+            + (self.zoom * settings.cell_size + settings.grid_width) * cell.x as f64),
+        self.offset.1
+          + (settings.grid_width
+            + (self.zoom * settings.cell_size + settings.grid_width) * cell.y as f64),
+        self.zoom * settings.cell_size,
+        self.zoom * settings.cell_size,
       );
     }
   }
@@ -129,6 +132,7 @@ pub enum BoardMessage {
   PointerUp(i32, i32),
   PointerMove(i32, i32),
   Resize,
+  Zoom(i32, i32, f64),
 }
 
 impl Component for Board {
@@ -144,8 +148,9 @@ impl Component for Board {
 
     Self {
       canvas_ref: NodeRef::default(),
-      offset: (0, 0),
+      offset: (0.0, 0.0),
       last_offset: None,
+      zoom: 1.5,
       _resize_handle: resize_handle,
     }
   }
@@ -153,7 +158,7 @@ impl Component for Board {
   fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
     match msg {
       BoardMessage::PointerDown(x, y) => {
-        self.last_offset = Some((x, y));
+        self.last_offset = Some((x as f64, y as f64));
         false
       }
       BoardMessage::PointerUp(_x, _y) => {
@@ -163,10 +168,10 @@ impl Component for Board {
       BoardMessage::PointerMove(x, y) => {
         if let Some(last_offset) = self.last_offset {
           self.offset = (
-            self.offset.0 + x - last_offset.0,
-            self.offset.1 + y - last_offset.1,
+            self.offset.0 + x as f64 - last_offset.0,
+            self.offset.1 + y as f64 - last_offset.1,
           );
-          self.last_offset = Some((x, y));
+          self.last_offset = Some((x as f64, y as f64));
           true
         } else {
           false
@@ -183,6 +188,15 @@ impl Component for Board {
         canvas.set_height(height);
         true
       }
+      BoardMessage::Zoom(x1, y1, zoom) => {
+        let prev_zoom = self.zoom;
+        self.zoom = f64::max(f64::min(self.zoom - 0.1 * zoom / 120.0, 5.0), 0.1);
+        self.offset = (
+          self.offset.0 - (x1 as f64 - self.offset.0) * (self.zoom / prev_zoom - 1.0),
+          self.offset.1 - (y1 as f64 - self.offset.1) * (self.zoom / prev_zoom - 1.0),
+        );
+        true
+      }
     }
   }
 
@@ -192,7 +206,9 @@ impl Component for Board {
     } else {
       let settings = self.settings(ctx);
       self.erase();
-      self.draw_grid(&settings);
+      if self.zoom > 0.3 {
+        self.draw_grid(&settings);
+      }
       let previous_gens = &ctx.props().previous_gens;
       let num_gens = previous_gens.len();
       for i in 0..num_gens {
@@ -218,6 +234,7 @@ impl Component for Board {
         onpointerup={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
         onpointerout={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
         onpointermove={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerMove(event.client_x(), event.client_y()))}
+        onwheel={ctx.link().callback(|event: WheelEvent| BoardMessage::Zoom(event.client_x(), event.client_y(), event.delta_y()))}
       />
     }
   }

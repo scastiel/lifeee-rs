@@ -20,5 +20,6 @@ features = [
   'Element',
   'HtmlCanvasElement',
   'HtmlSelectElement',
-  'Window'
+  'Window',
+  'WheelEvent',
 ]

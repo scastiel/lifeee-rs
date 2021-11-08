@@ -1,6 +1,4 @@
-use crate::lexicon::get_lexicon;
-use crate::lexicon::Lexicon;
-use crate::lexicon::Term;
+use crate::lexicon::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
