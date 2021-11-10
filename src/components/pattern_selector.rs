@@ -5,7 +5,7 @@ use yew::prelude::*;
 
 pub struct PatternSelector {
   lexicon: Lexicon,
-  selected: usize,
+  selected: Option<usize>,
 }
 
 #[derive(Properties, PartialEq)]
@@ -25,20 +25,22 @@ impl Component for PatternSelector {
   fn create(_: &Context<Self>) -> Self {
     Self {
       lexicon: get_lexicon().unwrap(),
-      selected: 0,
+      selected: None,
     }
   }
 
   fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
     match msg {
       Msg::PatternChanged(selected) => {
-        self.selected = selected;
+        self.selected = Some(selected);
         true
       }
       Msg::Apply => {
-        let on_apply_pattern = ctx.props().on_apply_pattern.clone();
-        let selected_term = self.lexicon.terms[self.selected].clone();
-        on_apply_pattern.emit(selected_term);
+        if let Some(selected) = self.selected {
+          let on_apply_pattern = ctx.props().on_apply_pattern.clone();
+          let selected_term = self.lexicon.terms[selected].clone();
+          on_apply_pattern.emit(selected_term);
+        }
         true
       }
     }
@@ -57,18 +59,19 @@ impl Component for PatternSelector {
     html! {
       <div>
         <select onchange={on_change_selected}>
+          <option disabled={true} selected={self.selected.is_none()}>{"Select a pattern…"}</option>
           {for {
             self.lexicon.terms.iter().enumerate()
+              .filter(|(_, term)| !term.cells.is_empty())
               .map(|(i, term)| html! {
                 <option
                   value={i.to_string()}
-                  selected={self.selected == i}
-                  disabled={term.cells.is_empty()}
+                  selected={self.selected == Some(i)}
                 >{&term.name}</option>
               })
           }}
         </select>
-        <button onclick={ctx.link().callback(move |_| Msg::Apply)}>{"Apply"}</button>
+        <button disabled={self.selected.is_none()} onclick={ctx.link().callback(move |_| Msg::Apply)}>{"Apply"}</button>
       </div>
     }
   }
