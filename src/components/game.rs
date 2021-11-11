@@ -30,7 +30,8 @@ pub enum Msg {
   Pause,
   ChangeSpeed(u8),
   ApplyPattern(Term),
-  ChangeZoomAndOffset((Option<f64>, Option<(f64, f64)>)),
+  MoveOffset((f64, f64)),
+  ChangeZoom((i32, i32, f64)),
   Resize,
 }
 
@@ -115,13 +116,8 @@ impl Component for Game {
         );
         true
       }
-      Msg::ChangeZoomAndOffset((zoom, offset)) => {
-        if let Some(zoom) = zoom {
-          self.zoom = zoom;
-        }
-        if let Some(offset) = offset {
-          self.offset = offset;
-        }
+      Msg::MoveOffset(offset) => {
+        self.offset = offset;
         true
       }
       Msg::Resize => {
@@ -132,6 +128,16 @@ impl Component for Game {
         );
         self.width = width;
         self.height = height;
+        true
+      }
+      Msg::ChangeZoom((x1, y1, zoom)) => {
+        let offset = self.offset;
+        let prev_zoom = self.zoom;
+        self.zoom = zoom;
+        self.offset = (
+          offset.0 - (x1 as f64 - offset.0) * (self.zoom / prev_zoom - 1.0),
+          offset.1 - (y1 as f64 - offset.1) * (self.zoom / prev_zoom - 1.0),
+        );
         true
       }
     }
@@ -177,6 +183,23 @@ impl Component for Game {
       Msg::ChangeSpeed(speed)
     });
 
+    let on_change_zoom = {
+      let width = self.width;
+      let height = self.height;
+      ctx.link().callback(move |event: Event| {
+        let input = event
+          .target()
+          .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
+          .unwrap();
+        let zoom: f64 = input.value().parse().unwrap();
+        Msg::ChangeZoom((
+          (width as f64 / 2_f64) as i32,
+          (height as f64 / 2_f64) as i32,
+          zoom,
+        ))
+      })
+    };
+
     html! {
       <>
         <Board
@@ -184,7 +207,8 @@ impl Component for Game {
           previous_gens={self.previous_gens.clone()}
           offset={self.offset}
           zoom={self.zoom}
-          change_zoom_and_offset={ctx.link().callback(move |(zoom, offset)| Msg::ChangeZoomAndOffset((zoom, offset)))}
+          move_offset={ctx.link().callback(move |offset| Msg::MoveOffset(offset))}
+          change_zoom={ctx.link().callback(move |(x1, y1, zoom)| Msg::ChangeZoom((x1, y1, zoom)))}
           width={self.width}
           height={self.height}
         />
@@ -201,7 +225,16 @@ impl Component for Game {
             {"Speed:"}
             <input
               type="range" min="1" max="10"
+              value={self.speed.to_string()}
               onchange={on_change_speed}
+            />
+          </label>
+          <label>
+            {"Zoom:"}
+            <input
+              type="range" min="0.1" max="5.0" step="0.1"
+              value={self.zoom.to_string()}
+              onchange={on_change_zoom}
             />
           </label>
           <PatternSelector on_apply_pattern={ctx.link().callback(|term| Msg::ApplyPattern(term))} />

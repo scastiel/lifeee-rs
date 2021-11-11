@@ -11,7 +11,8 @@ pub struct BoardProps {
   pub previous_gens: Vec<life::CellSet>,
   pub offset: (f64, f64),
   pub zoom: f64,
-  pub change_zoom_and_offset: Callback<(Option<f64>, Option<(f64, f64)>)>,
+  pub move_offset: Callback<(f64, f64)>,
+  pub change_zoom: Callback<(i32, i32, f64)>,
   pub width: u32,
   pub height: u32,
 }
@@ -176,12 +177,9 @@ impl Component for Board {
             offset.1 + y as f64 - last_offset.1,
           );
           if offset != new_offset {
-            ctx.props().change_zoom_and_offset.emit((
-              None,
-              Some((
-                offset.0 + x as f64 - last_offset.0,
-                offset.1 + y as f64 - last_offset.1,
-              )),
+            ctx.props().move_offset.emit((
+              offset.0 + x as f64 - last_offset.0,
+              offset.1 + y as f64 - last_offset.1,
             ));
           }
           self.last_offset = Some((x as f64, y as f64));
@@ -191,55 +189,43 @@ impl Component for Board {
         }
       }
       BoardMessage::Zoom(x1, y1, zoom) => {
-        let offset = ctx.props().offset;
-        let prev_zoom = ctx.props().zoom;
-        let new_zoom = f64::max(f64::min(prev_zoom - 0.1 * zoom / 120.0, 5.0), 0.1);
-        ctx.props().change_zoom_and_offset.emit((
-          Some(new_zoom),
-          Some((
-            offset.0 - (x1 as f64 - offset.0) * (new_zoom / prev_zoom - 1.0),
-            offset.1 - (y1 as f64 - offset.1) * (new_zoom / prev_zoom - 1.0),
-          )),
-        ));
+        let zoom = f64::max(f64::min(ctx.props().zoom - 0.1 * zoom / 120.0, 5.0), 0.1);
+        ctx.props().change_zoom.emit((x1, y1, zoom));
         true
       }
     }
   }
 
   fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
-    if _first_render {
-      // ctx.link().send_message(BoardMessage::Resize);
-    } else {
-      let canvas = self.canvas();
-      canvas.set_width(ctx.props().width);
-      canvas.set_height(ctx.props().height);
-      let settings = self.settings(ctx);
-      let zoom = ctx.props().zoom;
-      let offset = ctx.props().offset;
-      self.erase();
-      if ctx.props().zoom > 0.3 {
-        self.draw_grid(&settings, offset, zoom);
-      }
-      let previous_gens = &ctx.props().previous_gens;
-      let num_gens = previous_gens.len();
-      for i in 0..num_gens {
-        let gen_index = num_gens - i - 1;
-        self.draw_cells(
-          &settings,
-          &previous_gens[gen_index],
-          self.color_for_previous_gen(gen_index, num_gens),
-          offset,
-          zoom,
-        );
-      }
+    let canvas = self.canvas();
+    canvas.set_width(ctx.props().width);
+    canvas.set_height(ctx.props().height);
+    let settings = self.settings(ctx);
+    let zoom = ctx.props().zoom;
+    let offset = ctx.props().offset;
+    self.erase();
+    if ctx.props().zoom > 0.3 {
+      self.draw_grid(&settings, offset, zoom);
+    }
+    let previous_gens = &ctx.props().previous_gens;
+    let num_gens = previous_gens.len();
+    for i in 0..num_gens {
+      let gen_index = num_gens - i - 1;
       self.draw_cells(
         &settings,
-        &ctx.props().cells,
-        "black".to_string(),
+        &previous_gens[gen_index],
+        self.color_for_previous_gen(gen_index, num_gens),
         offset,
         zoom,
       );
     }
+    self.draw_cells(
+      &settings,
+      &ctx.props().cells,
+      "black".to_string(),
+      offset,
+      zoom,
+    );
   }
 
   fn view(&self, ctx: &Context<Self>) -> Html {
