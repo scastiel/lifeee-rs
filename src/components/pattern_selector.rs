@@ -57,7 +57,7 @@ impl Component for PatternSelector {
     });
 
     html! {
-      <div>
+      <div class="pattern-selector">
         <select onchange={on_change_selected}>
           <option disabled={true} selected={self.selected.is_none()}>{"Select a pattern…"}</option>
           {for {

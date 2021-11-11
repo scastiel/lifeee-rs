@@ -8,7 +8,7 @@ pub struct Settings {
 pub fn default_settings() -> Settings {
   Settings {
     cell_size: 20.0,
-    grid_width: 1.0,
+    grid_width: 0.5,
     num_previous: 10,
   }
 }

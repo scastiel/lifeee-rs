@@ -212,17 +212,21 @@ impl Component for Game {
           width={self.width}
           height={self.height}
         />
-        <div style="background: white; position: absolute; bottom: 10px; left: 10px">
-          <button disabled={running} onclick={ctx.link().callback(|_| Msg::NextTick)}>{"Tick"}</button>
-          <button onclick={
-            if running {
-              ctx.link().callback(|_| Msg::Pause)
-            } else {
-              ctx.link().callback(|_| Msg::Play)
-            }
-          }>{{if running { "Pause" } else { "Play" }}}</button>
+        <div class="panel">
+          <div class="controls">
+            <button disabled={running} onclick={ctx.link().callback(|_| Msg::NextTick)}>{"Tick"}</button>
+            <button onclick={
+              if running {
+                ctx.link().callback(|_| Msg::Pause)
+              } else {
+                ctx.link().callback(|_| Msg::Play)
+              }
+            }>{{if running { "Pause" } else { "Play" }}}</button>
+            <span class="generation">{format!("Generation #{}", self.tick)}</span>
+          </div>
+          <PatternSelector on_apply_pattern={ctx.link().callback(|term| Msg::ApplyPattern(term))} />
           <label>
-            {"Speed:"}
+            <span>{"Speed"}</span>
             <input
               type="range" min="1" max="10"
               value={self.speed.to_string()}
@@ -230,15 +234,13 @@ impl Component for Game {
             />
           </label>
           <label>
-            {"Zoom:"}
+            <span>{"Zoom"}</span>
             <input
               type="range" min="0.1" max="5.0" step="0.1"
               value={self.zoom.to_string()}
               onchange={on_change_zoom}
             />
           </label>
-          <PatternSelector on_apply_pattern={ctx.link().callback(|term| Msg::ApplyPattern(term))} />
-          <p>{"Generation #"}{self.tick}</p>
         </div>
       </>
     }

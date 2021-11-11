@@ -222,7 +222,7 @@ impl Component for Board {
     self.draw_cells(
       &settings,
       &ctx.props().cells,
-      "black".to_string(),
+      "#0d008b".to_string(),
       offset,
       zoom,
     );
@@ -232,7 +232,7 @@ impl Component for Board {
     html! {
       <canvas
         ref={self.canvas_ref.clone()}
-        style="cursor: move; position: absolute; top: 0; right: 0; bottom: 0; left: 0"
+        class="board"
         width={ctx.props().width.to_string()}
         height={ctx.props().height.to_string()}
         onpointerdown={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerDown(event.client_x(), event.client_y()))}
