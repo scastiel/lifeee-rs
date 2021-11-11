@@ -13,7 +13,11 @@ pub struct Cell {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Term {
   pub name: String,
+  pub description: String,
+  pub tags: Vec<String>,
   pub cells: Vec<Cell>,
+  pub width: usize,
+  pub height: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

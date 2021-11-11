@@ -67,7 +67,7 @@ impl Component for PatternSelector {
                 <option
                   value={i.to_string()}
                   selected={self.selected == Some(i)}
-                >{&term.name}</option>
+                >{format_term_option(&term)}</option>
               })
           }}
         </select>
@@ -75,4 +75,16 @@ impl Component for PatternSelector {
       </div>
     }
   }
+}
+
+fn format_term_option(term: &Term) -> String {
+  format!(
+    "{}{}",
+    &term.name,
+    if (&term.tags).len() > 0 {
+      format!(" ({})", &term.tags.join(", "))
+    } else {
+      "".to_string()
+    }
+  )
 }

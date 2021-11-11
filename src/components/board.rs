@@ -1,7 +1,6 @@
 use crate::color_utils::grey;
 use crate::life;
 use crate::settings::Settings;
-use gloo::events::EventListener;
 use wasm_bindgen::*;
 use web_sys::WheelEvent;
 use yew::prelude::*;
@@ -10,14 +9,16 @@ use yew::prelude::*;
 pub struct BoardProps {
   pub cells: life::CellSet,
   pub previous_gens: Vec<life::CellSet>,
+  pub offset: (f64, f64),
+  pub zoom: f64,
+  pub change_zoom_and_offset: Callback<(Option<f64>, Option<(f64, f64)>)>,
+  pub width: u32,
+  pub height: u32,
 }
 
 pub struct Board {
   canvas_ref: NodeRef,
-  offset: (f64, f64),
   last_offset: Option<(f64, f64)>,
-  zoom: f64,
-  _resize_handle: EventListener,
 }
 
 impl Board {
@@ -38,13 +39,18 @@ impl Board {
       .unwrap()
   }
 
-  fn cell_range(&self, settings: &Settings) -> (std::ops::Range<i32>, std::ops::Range<i32>) {
+  fn cell_range(
+    &self,
+    settings: &Settings,
+    offset: (f64, f64),
+    zoom: f64,
+  ) -> (std::ops::Range<i32>, std::ops::Range<i32>) {
     let canvas = self.canvas();
 
-    let from_x = self.size_to_cells(settings, -self.offset.0) as i32 - 1;
-    let to_x = from_x + self.size_to_cells(settings, canvas.width() as f64) as i32 + 1;
-    let from_y = self.size_to_cells(settings, -self.offset.1) as i32 - 1;
-    let to_y = from_y + self.size_to_cells(settings, canvas.height() as f64) as i32 + 1;
+    let from_x = self.size_to_cells(settings, -offset.0, zoom) as i32 - 1;
+    let to_x = from_x + self.size_to_cells(settings, canvas.width() as f64, zoom) as i32 + 1;
+    let from_y = self.size_to_cells(settings, -offset.1, zoom) as i32 - 1;
+    let to_y = from_y + self.size_to_cells(settings, canvas.height() as f64, zoom) as i32 + 1;
 
     (from_x..to_x, from_y..to_y)
   }
@@ -56,19 +62,19 @@ impl Board {
     context.fill_rect(0.0, 0.0, canvas.width().into(), canvas.height().into())
   }
 
-  fn size_to_cells(&self, settings: &Settings, size: f64) -> f64 {
-    (size / (settings.cell_size * self.zoom + settings.grid_width) as f64).ceil()
+  fn size_to_cells(&self, settings: &Settings, size: f64, zoom: f64) -> f64 {
+    (size / (settings.cell_size * zoom + settings.grid_width) as f64).ceil()
   }
 
-  fn draw_grid(&self, settings: &Settings) {
+  fn draw_grid(&self, settings: &Settings, offset: (f64, f64), zoom: f64) {
     let canvas = self.canvas();
     let context = self.context();
     context.set_fill_style(&JsValue::from_str(grey(0.9).as_str()));
 
-    let (cell_range_x, cell_range_y) = self.cell_range(settings);
+    let (cell_range_x, cell_range_y) = self.cell_range(settings, offset, zoom);
     for i in cell_range_x {
       context.fill_rect(
-        self.offset.0 + i as f64 * (self.zoom * settings.cell_size + settings.grid_width),
+        offset.0 + i as f64 * (zoom * settings.cell_size + settings.grid_width),
         0.0,
         settings.grid_width,
         canvas.height().into(),
@@ -78,18 +84,25 @@ impl Board {
     for j in cell_range_y {
       context.fill_rect(
         0.0,
-        self.offset.1 + (j as f64 * (self.zoom * settings.cell_size + settings.grid_width)),
+        offset.1 + (j as f64 * (zoom * settings.cell_size + settings.grid_width)),
         canvas.width().into(),
         settings.grid_width,
       )
     }
   }
 
-  fn draw_cells(&self, settings: &Settings, cells: &life::CellSet, color: String) {
+  fn draw_cells(
+    &self,
+    settings: &Settings,
+    cells: &life::CellSet,
+    color: String,
+    offset: (f64, f64),
+    zoom: f64,
+  ) {
     let context = self.context();
     context.set_fill_style(&JsValue::from(color));
 
-    let (cell_range_x, cell_range_y) = self.cell_range(settings);
+    let (cell_range_x, cell_range_y) = self.cell_range(settings, offset, zoom);
     let cells = cells.iter().filter(|life::Cell { x, y }| {
       *x >= cell_range_x.start
         && *x <= cell_range_x.end
@@ -99,14 +112,14 @@ impl Board {
 
     for cell in cells {
       context.fill_rect(
-        self.offset.0
+        offset.0
           + (settings.grid_width
-            + (self.zoom * settings.cell_size + settings.grid_width) * cell.x as f64),
-        self.offset.1
+            + (zoom * settings.cell_size + settings.grid_width) * cell.x as f64),
+        offset.1
           + (settings.grid_width
-            + (self.zoom * settings.cell_size + settings.grid_width) * cell.y as f64),
-        self.zoom * settings.cell_size,
-        self.zoom * settings.cell_size,
+            + (zoom * settings.cell_size + settings.grid_width) * cell.y as f64),
+        zoom * settings.cell_size,
+        zoom * settings.cell_size,
       );
     }
   }
@@ -131,7 +144,6 @@ pub enum BoardMessage {
   PointerDown(i32, i32),
   PointerUp(i32, i32),
   PointerMove(i32, i32),
-  Resize,
   Zoom(i32, i32, f64),
 }
 
@@ -139,23 +151,14 @@ impl Component for Board {
   type Message = BoardMessage;
   type Properties = BoardProps;
 
-  fn create(ctx: &Context<Self>) -> Self {
-    let window = web_sys::window().unwrap();
-    let link = ctx.link().clone();
-    let resize_handle = EventListener::new(&window, "resize", move |_: &Event| {
-      link.send_message(BoardMessage::Resize)
-    });
-
+  fn create(_ctx: &Context<Self>) -> Self {
     Self {
       canvas_ref: NodeRef::default(),
-      offset: (0.0, 0.0),
       last_offset: None,
-      zoom: 1.5,
-      _resize_handle: resize_handle,
     }
   }
 
-  fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+  fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
     match msg {
       BoardMessage::PointerDown(x, y) => {
         self.last_offset = Some((x as f64, y as f64));
@@ -167,34 +170,37 @@ impl Component for Board {
       }
       BoardMessage::PointerMove(x, y) => {
         if let Some(last_offset) = self.last_offset {
-          self.offset = (
-            self.offset.0 + x as f64 - last_offset.0,
-            self.offset.1 + y as f64 - last_offset.1,
+          let offset = ctx.props().offset;
+          let new_offset = (
+            offset.0 + x as f64 - last_offset.0,
+            offset.1 + y as f64 - last_offset.1,
           );
+          if offset != new_offset {
+            ctx.props().change_zoom_and_offset.emit((
+              None,
+              Some((
+                offset.0 + x as f64 - last_offset.0,
+                offset.1 + y as f64 - last_offset.1,
+              )),
+            ));
+          }
           self.last_offset = Some((x as f64, y as f64));
           true
         } else {
           false
         }
       }
-      BoardMessage::Resize => {
-        let window = web_sys::window().unwrap();
-        let (width, height) = (
-          window.inner_width().unwrap().as_f64().unwrap() as u32,
-          window.inner_height().unwrap().as_f64().unwrap() as u32,
-        );
-        let canvas = self.canvas();
-        canvas.set_width(width);
-        canvas.set_height(height);
-        true
-      }
       BoardMessage::Zoom(x1, y1, zoom) => {
-        let prev_zoom = self.zoom;
-        self.zoom = f64::max(f64::min(self.zoom - 0.1 * zoom / 120.0, 5.0), 0.1);
-        self.offset = (
-          self.offset.0 - (x1 as f64 - self.offset.0) * (self.zoom / prev_zoom - 1.0),
-          self.offset.1 - (y1 as f64 - self.offset.1) * (self.zoom / prev_zoom - 1.0),
-        );
+        let offset = ctx.props().offset;
+        let prev_zoom = ctx.props().zoom;
+        let new_zoom = f64::max(f64::min(prev_zoom - 0.1 * zoom / 120.0, 5.0), 0.1);
+        ctx.props().change_zoom_and_offset.emit((
+          Some(new_zoom),
+          Some((
+            offset.0 - (x1 as f64 - offset.0) * (new_zoom / prev_zoom - 1.0),
+            offset.1 - (y1 as f64 - offset.1) * (new_zoom / prev_zoom - 1.0),
+          )),
+        ));
         true
       }
     }
@@ -202,12 +208,17 @@ impl Component for Board {
 
   fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
     if _first_render {
-      ctx.link().send_message(BoardMessage::Resize);
+      // ctx.link().send_message(BoardMessage::Resize);
     } else {
+      let canvas = self.canvas();
+      canvas.set_width(ctx.props().width);
+      canvas.set_height(ctx.props().height);
       let settings = self.settings(ctx);
+      let zoom = ctx.props().zoom;
+      let offset = ctx.props().offset;
       self.erase();
-      if self.zoom > 0.3 {
-        self.draw_grid(&settings);
+      if ctx.props().zoom > 0.3 {
+        self.draw_grid(&settings, offset, zoom);
       }
       let previous_gens = &ctx.props().previous_gens;
       let num_gens = previous_gens.len();
@@ -217,9 +228,17 @@ impl Component for Board {
           &settings,
           &previous_gens[gen_index],
           self.color_for_previous_gen(gen_index, num_gens),
+          offset,
+          zoom,
         );
       }
-      self.draw_cells(&settings, &ctx.props().cells, "black".to_string());
+      self.draw_cells(
+        &settings,
+        &ctx.props().cells,
+        "black".to_string(),
+        offset,
+        zoom,
+      );
     }
   }
 
@@ -228,8 +247,8 @@ impl Component for Board {
       <canvas
         ref={self.canvas_ref.clone()}
         style="cursor: move; position: absolute; top: 0; right: 0; bottom: 0; left: 0"
-        width={300}
-        height={200}
+        width={ctx.props().width.to_string()}
+        height={ctx.props().height.to_string()}
         onpointerdown={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerDown(event.client_x(), event.client_y()))}
         onpointerup={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}
         onpointerout={ctx.link().callback(|event: PointerEvent| BoardMessage::PointerUp(event.client_x(), event.client_y()))}

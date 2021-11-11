@@ -3,6 +3,7 @@ use crate::components::pattern_selector::PatternSelector;
 use crate::lexicon::Term;
 use crate::life::*;
 use crate::Settings;
+use gloo::events::EventListener;
 use gloo::timers::callback::Interval;
 use std::collections::VecDeque;
 use wasm_bindgen::JsCast;
@@ -15,6 +16,12 @@ pub struct Game {
   tick: u32,
   interval: Option<Interval>,
   speed: u8,
+  adjust_offset: Option<(usize, usize)>,
+  offset: (f64, f64),
+  zoom: f64,
+  width: u32,
+  height: u32,
+  _resize_handle: EventListener,
 }
 
 pub enum Msg {
@@ -23,6 +30,8 @@ pub enum Msg {
   Pause,
   ChangeSpeed(u8),
   ApplyPattern(Term),
+  ChangeZoomAndOffset((Option<f64>, Option<(f64, f64)>)),
+  Resize,
 }
 
 impl Game {
@@ -52,6 +61,7 @@ impl Component for Game {
     match msg {
       Msg::NextTick => {
         self.tick += 1;
+        self.adjust_offset = None;
 
         self.previous_gens = {
           let mut previous_gens_deque: VecDeque<CellSet> = self
@@ -95,22 +105,60 @@ impl Component for Game {
           .fold(CellSet::new(), |cells, &cell| make_cell_alive(&cells, cell));
         self.tick = 0;
         self.previous_gens = vec![];
+        self.adjust_offset = Some((term.width, term.height));
+        true
+      }
+      Msg::ChangeZoomAndOffset((zoom, offset)) => {
+        if let Some(zoom) = zoom {
+          self.zoom = zoom;
+        }
+        if let Some(offset) = offset {
+          self.offset = offset;
+        }
+        true
+      }
+      Msg::Resize => {
+        let window = web_sys::window().unwrap();
+        let (width, height) = (
+          window.inner_width().unwrap().as_f64().unwrap() as u32,
+          window.inner_height().unwrap().as_f64().unwrap() as u32,
+        );
+        self.width = width;
+        self.height = height;
         true
       }
     }
   }
 
-  fn create(_: &Context<Self>) -> Self {
+  fn create(ctx: &Context<Self>) -> Self {
+    let window = web_sys::window().unwrap();
+    let link = ctx.link().clone();
+    let resize_handle = EventListener::new(&window, "resize", move |_: &Event| {
+      link.send_message(Msg::Resize)
+    });
+
     Self {
       cells: CellSet::new(),
       previous_gens: vec![] as Vec<CellSet>,
       tick: 0,
       interval: None,
       speed: 5,
+      adjust_offset: None,
+      offset: (0.0, 0.0),
+      zoom: 1.0,
+      width: 300,
+      height: 200,
+      _resize_handle: resize_handle,
     }
   }
 
-  fn view(&self, ctx: &yew::Context<Self>) -> yew::virtual_dom::VNode {
+  fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
+    if _first_render {
+      ctx.link().send_message(Msg::Resize);
+    }
+  }
+
+  fn view(&self, ctx: &Context<Self>) -> yew::virtual_dom::VNode {
     let running = self.interval.is_some();
 
     let on_change_speed = ctx.link().callback(|event: Event| {
@@ -127,6 +175,11 @@ impl Component for Game {
         <Board
           cells={self.cells.clone()}
           previous_gens={self.previous_gens.clone()}
+          offset={self.offset}
+          zoom={self.zoom}
+          change_zoom_and_offset={ctx.link().callback(move |(zoom, offset)| Msg::ChangeZoomAndOffset((zoom, offset)))}
+          width={self.width}
+          height={self.height}
         />
         <div style="background: white; position: absolute; bottom: 10px; left: 10px">
           <button disabled={running} onclick={ctx.link().callback(|_| Msg::NextTick)}>{"Tick"}</button>
