@@ -105,7 +105,14 @@ impl Component for Game {
           .fold(CellSet::new(), |cells, &cell| make_cell_alive(&cells, cell));
         self.tick = 0;
         self.previous_gens = vec![];
-        self.adjust_offset = Some((term.width, term.height));
+        self.offset = (
+          (self.width as f64 / 2_f64
+            - term.width as f64 * self.zoom * (settings.cell_size + settings.grid_width) as f64
+              / 2_f64),
+          (self.height as f64 / 2_f64
+            - term.height as f64 * self.zoom * (settings.cell_size + settings.grid_width) as f64
+              / 2_f64),
+        );
         true
       }
       Msg::ChangeZoomAndOffset((zoom, offset)) => {
