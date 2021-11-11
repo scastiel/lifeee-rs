@@ -71,6 +71,17 @@ label > *:first-child {
 .pattern-selector button {
   margin-left: 4px;
 }
+.about {
+  font-size: small;
+  color: #222;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+.about a {
+  color: var(--primary-color);
+}
 
 input[type='range'] {
   height: 25px;
