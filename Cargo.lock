@@ -193,9 +193,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "lexicon"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "623f23789625171055b995de59ad4a2f7f03c04403ab5c6f4454012dbc71bf79"
+checksum = "32a7ee1bb3fcaf750bfe5dfa5153612491ecac62311c066a52a56e0298136e62"
 dependencies = [
  "bincode",
  "regex",
