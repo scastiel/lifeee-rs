@@ -1,4 +1,4 @@
-pub use crate::lexicon::Cell;
+use lexicon::Cell;
 use std::collections::HashSet;
 
 pub type CellSet = HashSet<Cell>;

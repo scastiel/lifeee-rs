@@ -1,6 +1,7 @@
 use crate::color_utils::grey;
 use crate::life;
 use crate::settings::Settings;
+use lexicon::*;
 use wasm_bindgen::*;
 use web_sys::WheelEvent;
 use yew::prelude::*;
@@ -104,7 +105,7 @@ impl Board {
     context.set_fill_style(&JsValue::from(color));
 
     let (cell_range_x, cell_range_y) = self.cell_range(settings, offset, zoom);
-    let cells = cells.iter().filter(|life::Cell { x, y }| {
+    let cells = cells.iter().filter(|Cell { x, y }| {
       *x >= cell_range_x.start
         && *x <= cell_range_x.end
         && *y >= cell_range_y.start

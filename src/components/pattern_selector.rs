@@ -1,4 +1,4 @@
-use crate::lexicon::*;
+use lexicon::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
@@ -24,7 +24,7 @@ impl Component for PatternSelector {
 
   fn create(_: &Context<Self>) -> Self {
     Self {
-      lexicon: get_lexicon().unwrap(),
+      lexicon: Lexicon::get(),
       selected: None,
     }
   }

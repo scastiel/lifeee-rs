@@ -1,10 +1,10 @@
 use crate::components::board::Board;
 use crate::components::pattern_selector::PatternSelector;
-use crate::lexicon::Term;
 use crate::life::*;
 use crate::Settings;
 use gloo::events::EventListener;
 use gloo::timers::callback::Interval;
+use lexicon::Term;
 use std::collections::VecDeque;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
